@@ -4,16 +4,16 @@ kind: Kustomization
 namespace: company
 
 resources:
-  - namespace.yaml
-  - backend.yaml
-  - frontend.yaml
-  - ingress.yaml
+- namespace.yaml
+- backend.yaml
+- frontend.yaml
+- ingress.yaml
 
 # GitHub Actions 가 빌드 후 newName/newTag 를 자동 갱신
 images:
-  - name: company-backend
-    newName: company-backend
-    newTag: latest
-  - name: company-frontend
-    newName: company-frontend
-    newTag: latest
+- name: company-backend
+  newName: 925047940866.dkr.ecr.ap-southeast-1.amazonaws.com/company-backend
+  newTag: 640bc50670629f76448c5029152f5c4c64652034
+- name: company-frontend
+  newName: 925047940866.dkr.ecr.ap-southeast-1.amazonaws.com/company-frontend
+  newTag: 640bc50670629f76448c5029152f5c4c64652034
