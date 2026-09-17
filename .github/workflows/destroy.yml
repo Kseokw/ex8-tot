@@ -1,0 +1,53 @@
+name: destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: '삭제하려면 "destroy" 입력'
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-1
+  CLUSTER_NAME: std07-lab-eks
+  TF_DIR: terraform/infra/resource
+
+jobs:
+  destroy:
+    if: github.event.inputs.confirm == 'destroy'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.13"
+          terraform_wrapper: false
+
+      # LB Controller 가 살아 있을 때 ALB/NLB 를 먼저 지워야
+      # AWS 에 LB 가 남지 않고 VPC 삭제도 막히지 않음
+      - name: delete load balancers first
+        continue-on-error: true
+        run: |
+          aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
+          kubectl -n argocd delete application company --wait=true --timeout=300s
+          kubectl -n company delete ingress --all --wait=true --timeout=300s
+          kubectl delete namespace company --ignore-not-found --timeout=300s
+          kubectl -n argocd delete svc argocd-server --wait=true --timeout=300s
+          sleep 60
+
+      - name: terraform destroy
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init -input=false
+          terraform destroy -auto-approve -input=false \
+            -var="git_repo_url=${{ github.server_url }}/${{ github.repository }}.git"

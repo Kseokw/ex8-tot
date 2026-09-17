@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Company</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 4rem auto; padding: 0 1rem; }
+    pre  { background: #f3f3f3; padding: 1rem; border-radius: 8px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Company Service</h1>
+  <p>nginx → FastAPI 연결 확인</p>
+  <button id="btn">API 호출</button>
+  <pre id="out">-</pre>
+  <script>
+    document.getElementById("btn").onclick = async () => {
+      const out = document.getElementById("out");
+      try {
+        const res = await fetch("/api/hello");
+        out.textContent = JSON.stringify(await res.json(), null, 2);
+      } catch (e) {
+        out.textContent = "에러: " + e;
+      }
+    };
+  </script>
+</body>
+</html>

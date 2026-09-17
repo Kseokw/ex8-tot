@@ -1,0 +1,122 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "k8s/**"                            # 매니페스트 태그 갱신 커밋으로 인한 무한 루프 방지
+      - "terraform/infra/public-state/**"   # 상태 버킷 영역은 자동배포 제외
+      - "**.md"
+      - "**.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write   # 매니페스트 커밋
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-southeast-1
+  CLUSTER_NAME: std07-lab-eks
+  TF_DIR: terraform/infra/resource
+
+jobs:
+  # 1) 인프라: VPC → EKS → ECR → LB Controller → ArgoCD
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.TF_DIR }}
+    env:
+      # ArgoCD admin 비밀번호 해시 (로그에 출력되지 않음)
+      TF_VAR_argocd_admin_password_hash: ${{ secrets.ARGOCD_ADMIN_PASSWORD_HASH }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.13"
+          terraform_wrapper: false
+
+      - run: terraform init -input=false
+      - run: terraform validate
+
+      - name: terraform apply
+        run: |
+          terraform apply -auto-approve -input=false \
+            -var="git_repo_url=${{ github.server_url }}/${{ github.repository }}.git" \
+            -var="git_revision=${{ github.ref_name }}"
+
+  # 2) 이미지 빌드/푸시 → 3) 매니페스트 태그 갱신 → 4) 접속 주소 출력
+  build-and-release:
+    needs: terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: build & push
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ github.sha }}
+        run: |
+          for svc in backend frontend; do
+            docker build -t $REGISTRY/company-$svc:$TAG app/company/$svc
+            docker push $REGISTRY/company-$svc:$TAG
+          done
+
+      - name: update manifest
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ github.sha }}
+        run: |
+          cd k8s
+          kustomize edit set image \
+            company-backend=$REGISTRY/company-backend:$TAG \
+            company-frontend=$REGISTRY/company-frontend:$TAG
+          cd ..
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add k8s/kustomization.yaml
+          git commit -m "chore: update image tag to ${TAG::7} [skip ci]" || exit 0
+          git pull --rebase origin ${{ github.ref_name }}
+          git push origin HEAD:${{ github.ref_name }}
+
+      # 접속 주소를 Actions 실행 결과 요약(Summary)에 표시 (비밀번호는 출력하지 않음)
+      - name: show endpoints
+        continue-on-error: true
+        run: |
+          aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
+          APP=""; ARGO=""
+          for i in $(seq 1 30); do
+            APP=$(kubectl -n company get ingress frontend -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+            ARGO=$(kubectl -n argocd get svc argocd-server -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+            [ -n "$APP" ] && [ -n "$ARGO" ] && break
+            echo "LB 주소 대기 중... ($i/30)"; sleep 20
+          done
+          {
+            echo "## 접속 정보"
+            echo "| 대상 | 주소 |"
+            echo "|---|---|"
+            echo "| 서비스 (ALB) | http://${APP:-아직 생성 중} |"
+            echo "| ArgoCD (NLB) | http://${ARGO:-아직 생성 중} |"
+            echo ""
+            echo "- ArgoCD 계정: admin / 비밀번호: ARGOCD_ADMIN_PASSWORD_HASH 를 만들 때 정한 값"
+            echo "- LB DNS 전파까지 2~3분 걸릴 수 있음"
+          } >> $GITHUB_STEP_SUMMARY
