@@ -248,17 +248,18 @@ resource "aws_route_table_association" "cluster_1c_rt_association" {
 }
 
 # =============================================================================================
-# 보안그룹 설정 (MySQL - VPC 내부에서만 접근)
+# 보안그룹 설정 (MySQL - EKS 워커 노드에서만 접근)
 resource "aws_security_group" "std07_lab_mysql_sg" {
   name        = "${local.tag_header}-mysql-sg"
-  description = "Allow MySQL inbound traffic from VPC"
+  description = "Allow MySQL inbound traffic from EKS nodes"
   vpc_id      = aws_vpc.vpc.id
 
+  # VPC 대역 전체가 아니라 EKS 노드가 쓰는 보안그룹에서 오는 3306 만 허용
   ingress {
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = [aws_vpc.vpc.cidr_block] # VPC 대역(10.0.0.0/16)만 허용
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_eks_cluster.eks.vpc_config[0].cluster_security_group_id]
   }
 
   egress {

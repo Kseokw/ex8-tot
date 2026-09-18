@@ -41,7 +41,6 @@ jobs:
           aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
           kubectl -n argocd delete application company --wait=true --timeout=300s
           kubectl -n company delete ingress --all --wait=true --timeout=300s
-          kubectl delete namespace company --ignore-not-found --timeout=300s
           kubectl -n argocd delete svc argocd-server --wait=true --timeout=300s
           sleep 60
 

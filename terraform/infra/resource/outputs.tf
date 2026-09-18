@@ -13,3 +13,7 @@ output "ecr_repository_urls" {
 output "kubeconfig_command" {
   value = "aws eks update-kubeconfig --name ${aws_eks_cluster.eks.name} --region ${var.aws_region}"
 }
+
+output "db_endpoint" {
+  value = aws_db_instance.mysql.address
+}

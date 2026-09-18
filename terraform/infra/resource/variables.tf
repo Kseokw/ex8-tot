@@ -67,3 +67,34 @@ variable "argocd_admin_password_hash" {
   default   = ""
   sensitive = true
 }
+
+# ------------------------------- RDS -------------------------------
+variable "db_instance_class" {
+  type    = string
+  default = "db.t4g.micro" # 프리 티어 대상 인스턴스
+}
+
+variable "db_allocated_storage" {
+  type    = number
+  default = 20
+}
+
+variable "db_engine_version" {
+  type    = string
+  default = "8.0"
+}
+
+variable "db_name" {
+  type    = string
+  default = "grades"
+}
+
+variable "db_username" {
+  type    = string
+  default = "dbadmin" # admin, root 등 예약어는 사용 불가
+}
+
+variable "app_namespace" {
+  type    = string
+  default = "company"
+}

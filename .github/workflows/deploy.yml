@@ -59,6 +59,9 @@ jobs:
   build-and-release:
     needs: terraform
     runs-on: ubuntu-latest
+    env:
+      # step 의 if 조건에서는 secrets 를 직접 못 쓰므로 env 로 옮긴다
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
     steps:
       - uses: actions/checkout@v4
 
@@ -71,14 +74,37 @@ jobs:
       - id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      # Docker Hub 로그인 (Secret 이 없으면 건너뛰고 ECR 에만 푸시)
+      - name: docker hub login
+        id: dockerhub
+        if: env.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: build & push
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
+          HUB_LOGGED_IN: ${{ steps.dockerhub.outcome == 'success' }}
           TAG: ${{ github.sha }}
         run: |
           for svc in backend frontend; do
-            docker build -t $REGISTRY/company-$svc:$TAG app/company/$svc
+            # 한 번 빌드해서 ECR 과 Docker Hub 태그를 함께 붙인다
+            TAGS="-t $REGISTRY/company-$svc:$TAG"
+            if [ "$HUB_LOGGED_IN" = "true" ]; then
+              TAGS="$TAGS -t $DOCKERHUB_USERNAME/company-$svc:$TAG -t $DOCKERHUB_USERNAME/company-$svc:latest"
+            fi
+            docker build $TAGS app/company/$svc
+
+            # EKS 가 받아가는 곳 (배포에 사용)
             docker push $REGISTRY/company-$svc:$TAG
+
+            # 로컬 docker compose 등에서 쓰는 사본
+            if [ "$HUB_LOGGED_IN" = "true" ]; then
+              docker push $DOCKERHUB_USERNAME/company-$svc:$TAG
+              docker push $DOCKERHUB_USERNAME/company-$svc:latest
+            fi
           done
 
       - name: update manifest
@@ -119,4 +145,8 @@ jobs:
             echo ""
             echo "- ArgoCD 계정: admin / 비밀번호: ARGOCD_ADMIN_PASSWORD_HASH 를 만들 때 정한 값"
             echo "- LB DNS 전파까지 2~3분 걸릴 수 있음"
+            echo ""
+            echo "### 이미지"
+            echo "- 배포용(ECR): company-backend:${GITHUB_SHA::7} / company-frontend:${GITHUB_SHA::7}"
+            echo "- 사본(Docker Hub): ${DOCKERHUB_USERNAME:-미설정}/company-backend:latest 등"
           } >> $GITHUB_STEP_SUMMARY

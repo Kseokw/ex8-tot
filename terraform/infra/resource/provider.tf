@@ -15,6 +15,14 @@ terraform {
       source  = "hashicorp/http"
       version = "~> 3.4" # LB Controller IAM 정책 JSON 다운로드용
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.38" # DB 접속 정보를 k8s Secret 으로 전달
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6" # DB 비밀번호 생성
+    }
   }
 
   backend "s3" {
@@ -46,5 +54,17 @@ provider "helm" {
       command     = "aws"
       args        = ["eks", "get-token", "--cluster-name", aws_eks_cluster.eks.name, "--region", var.aws_region]
     }
+  }
+}
+
+# k8s Secret(DB 접속 정보) 생성용
+provider "kubernetes" {
+  host                   = aws_eks_cluster.eks.endpoint
+  cluster_ca_certificate = base64decode(aws_eks_cluster.eks.certificate_authority[0].data)
+
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args        = ["eks", "get-token", "--cluster-name", aws_eks_cluster.eks.name, "--region", var.aws_region]
   }
 }

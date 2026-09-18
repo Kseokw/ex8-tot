@@ -1,0 +1,44 @@
+# 로컬 개발/테스트용 (docker compose up --build → http://localhost:8080)
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: company-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: grades
+      MYSQL_USER: dbadmin
+      MYSQL_PASSWORD: localpassword
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    # DOCKERHUB_USERNAME 을 지정하면 그 이름으로 태그된다
+    # (docker compose pull 로 Docker Hub 이미지를 바로 받아 쓸 수도 있음)
+    image: ${DOCKERHUB_USERNAME:-local}/company-backend:latest
+    container_name: company-backend
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: grades
+      DB_USER: dbadmin
+      DB_PASSWORD: localpassword
+    expose:
+      - "8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    image: ${DOCKERHUB_USERNAME:-local}/company-frontend:latest
+    container_name: company-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend

@@ -77,7 +77,7 @@ resource "helm_release" "argocd_apps" {
         }
         syncPolicy = {
           automated   = { prune = true, selfHeal = true }
-          syncOptions = ["CreateNamespace=true"]
+          # 네임스페이스는 Terraform 이 생성하므로 CreateNamespace 불필요
           # 컨트롤러 웹훅 준비 전 Ingress 생성 실패 대비 재시도
           retry = {
             limit   = 10
@@ -88,5 +88,6 @@ resource "helm_release" "argocd_apps" {
     }
   })]
 
-  depends_on = [helm_release.argocd]
+  # 네임스페이스와 DB Secret 이 준비된 뒤 동기화되도록
+  depends_on = [helm_release.argocd, kubernetes_secret.db]
 }

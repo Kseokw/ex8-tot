@@ -1,13 +1,20 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# 네임스페이스와 db-credentials Secret 은 Terraform 이 생성한다
 namespace: company
 
 resources:
+<<<<<<< HEAD
 - namespace.yaml
 - backend.yaml
 - frontend.yaml
 - ingress.yaml
+=======
+  - backend.yaml
+  - frontend.yaml
+  - ingress.yaml
+>>>>>>> 222e908 (실제 서비스로 수정)
 
 # GitHub Actions 가 빌드 후 newName/newTag 를 자동 갱신
 images:

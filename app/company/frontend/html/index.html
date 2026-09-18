@@ -3,27 +3,54 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Company</title>
+  <title>Company 교육 포털</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 4rem auto; padding: 0 1rem; }
-    pre  { background: #f3f3f3; padding: 1rem; border-radius: 8px; overflow-x: auto; }
+    body { font-family: system-ui, sans-serif; margin: 0; color: #222; }
+    .hero { background: linear-gradient(135deg, #2d6cdf, #1b3f87); color: #fff; padding: 5rem 1.5rem 4rem; text-align: center; }
+    .hero h1 { font-size: 2.2rem; margin: 0 0 .8rem; }
+    .hero p { opacity: .9; margin: 0; }
+    .wrap { max-width: 860px; margin: -2.5rem auto 4rem; padding: 0 1.5rem; }
+    .card { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 2rem; box-shadow: 0 6px 20px rgba(0,0,0,.08); text-align: center; }
+    .card h2 { margin: 0 0 .5rem; }
+    .card p { color: #666; margin: 0 0 1.5rem; }
+    .btn { display: inline-block; background: #2d6cdf; color: #fff; text-decoration: none; padding: .9rem 2rem; border-radius: 8px; font-weight: 600; }
+    .btn:hover { background: #1b3f87; }
+    .info { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 2rem; }
+    .info div { border: 1px solid #eee; border-radius: 10px; padding: 1.2rem; }
+    .info h3 { margin: 0 0 .4rem; font-size: 1rem; }
+    .info p { color: #666; font-size: .9rem; margin: 0; }
+    footer { text-align: center; color: #999; font-size: .85rem; padding-bottom: 2rem; }
   </style>
 </head>
 <body>
-  <h1>Company Service</h1>
-  <p>nginx → FastAPI 연결 확인</p>
-  <button id="btn">API 호출</button>
-  <pre id="out">-</pre>
-  <script>
-    document.getElementById("btn").onclick = async () => {
-      const out = document.getElementById("out");
-      try {
-        const res = await fetch("/api/hello");
-        out.textContent = JSON.stringify(await res.json(), null, 2);
-      } catch (e) {
-        out.textContent = "에러: " + e;
-      }
-    };
-  </script>
+  <div class="hero">
+    <h1>Company 교육 포털</h1>
+    <p>교육 과정 안내와 교육생 성적 관리를 제공합니다.</p>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <h2>교육생 성적 조회</h2>
+      <p>이름이나 과목으로 성적을 조회하고, 등록과 점수 변경도 할 수 있습니다.</p>
+      <a class="btn" href="/grades">성적 조회 바로가기</a>
+    </div>
+
+    <div class="info">
+      <div>
+        <h3>클라우드 인프라</h3>
+        <p>Terraform 으로 VPC 부터 EKS 까지 코드로 관리합니다.</p>
+      </div>
+      <div>
+        <h3>컨테이너 운영</h3>
+        <p>nginx 와 FastAPI 를 EKS 위에서 서비스합니다.</p>
+      </div>
+      <div>
+        <h3>GitOps 배포</h3>
+        <p>git push 한 번으로 ArgoCD 가 자동 배포합니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>std07-lab</footer>
 </body>
 </html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>교육생 성적 조회</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 860px; margin: 3rem auto; padding: 0 1rem; color: #222; }
+    h1 { margin-bottom: .3rem; }
+    .sub { color: #666; margin-bottom: 2rem; }
+    .box { border: 1px solid #ddd; border-radius: 10px; padding: 1.2rem; margin-bottom: 1.5rem; }
+    .box h2 { font-size: 1rem; margin: 0 0 .8rem; }
+    input { padding: .5rem; border: 1px solid #ccc; border-radius: 6px; margin-right: .4rem; }
+    button { padding: .5rem .9rem; border: 0; border-radius: 6px; background: #2d6cdf; color: #fff; cursor: pointer; }
+    button.sub-btn { background: #666; }
+    button.danger { background: #c0392b; }
+    table { width: 100%; border-collapse: collapse; margin-top: .5rem; }
+    th, td { border-bottom: 1px solid #eee; padding: .6rem .4rem; text-align: left; font-size: .95rem; }
+    th { background: #fafafa; }
+    .msg { margin-top: .8rem; font-size: .9rem; color: #c0392b; min-height: 1.2em; }
+    a { color: #2d6cdf; }
+  </style>
+</head>
+<body>
+  <h1>교육생 성적 조회</h1>
+  <p class="sub"><a href="/">← 소개 페이지로</a></p>
+
+  <div class="box">
+    <h2>성적 등록</h2>
+    <input id="name" placeholder="이름" />
+    <input id="course" placeholder="과목" />
+    <input id="score" type="number" min="0" max="100" placeholder="점수" style="width:90px" />
+    <button onclick="createStudent()">등록</button>
+  </div>
+
+  <div class="box">
+    <h2>조회</h2>
+    <input id="q-name" placeholder="이름 검색" />
+    <input id="q-course" placeholder="과목 검색" />
+    <button onclick="loadStudents()">조회</button>
+    <button class="sub-btn" onclick="resetSearch()">전체 보기</button>
+
+    <table>
+      <thead>
+        <tr><th>ID</th><th>이름</th><th>과목</th><th>점수</th><th>수정일</th><th>관리</th></tr>
+      </thead>
+      <tbody id="tbody"><tr><td colspan="6">불러오는 중...</td></tr></tbody>
+    </table>
+    <div class="msg" id="msg"></div>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const setMsg = (t) => { $("msg").textContent = t || ""; };
+
+async function loadStudents() {
+  setMsg("");
+  const params = new URLSearchParams();
+  if ($("q-name").value) params.append("name", $("q-name").value);
+  if ($("q-course").value) params.append("course", $("q-course").value);
+  try {
+    const res = await fetch("/api/students?" + params.toString());
+    if (!res.ok) throw new Error(await res.text());
+    render(await res.json());
+  } catch (e) {
+    setMsg("조회 실패: " + e.message);
+  }
+}
+
+function render(rows) {
+  const tbody = $("tbody");
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6">데이터가 없습니다.</td></tr>'; return; }
+  tbody.innerHTML = rows.map((r) => `
+    <tr>
+      <td>${r.id}</td>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(r.course)}</td>
+      <td>
+        <input type="number" min="0" max="100" value="${r.score}" id="s-${r.id}" style="width:70px" />
+        <button onclick="updateScore(${r.id})">변경</button>
+      </td>
+      <td>${(r.updated_at || "").replace("T", " ").slice(0, 16)}</td>
+      <td><button class="danger" onclick="removeStudent(${r.id})">삭제</button></td>
+    </tr>`).join("");
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+async function createStudent() {
+  setMsg("");
+  const body = { name: $("name").value.trim(), course: $("course").value.trim(), score: Number($("score").value) };
+  if (!body.name || !body.course || Number.isNaN(body.score)) { setMsg("이름, 과목, 점수를 모두 입력하세요."); return; }
+  try {
+    const res = await fetch("/api/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(await res.text());
+    $("name").value = ""; $("course").value = ""; $("score").value = "";
+    loadStudents();
+  } catch (e) { setMsg("등록 실패: " + e.message); }
+}
+
+async function updateScore(id) {
+  setMsg("");
+  try {
+    const res = await fetch(`/api/students/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ score: Number($(`s-${id}`).value) }) });
+    if (!res.ok) throw new Error(await res.text());
+    loadStudents();
+  } catch (e) { setMsg("변경 실패: " + e.message); }
+}
+
+async function removeStudent(id) {
+  if (!confirm(`${id}번 교육생 기록을 삭제할까요?`)) return;
+  try {
+    const res = await fetch(`/api/students/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error(await res.text());
+    loadStudents();
+  } catch (e) { setMsg("삭제 실패: " + e.message); }
+}
+
+function resetSearch() { $("q-name").value = ""; $("q-course").value = ""; loadStudents(); }
+loadStudents();
+</script>
+</body>
+</html>

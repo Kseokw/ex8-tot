@@ -19,17 +19,22 @@ spec:
           image: company-backend # kustomization.yaml 에서 ECR 주소/태그로 치환
           ports:
             - containerPort: 8000
+          # RDS 접속 정보 (Terraform 이 만든 Secret)
+          envFrom:
+            - secretRef:
+                name: db-credentials
           readinessProbe:
             httpGet:
               path: /api/health
               port: 8000
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
+            failureThreshold: 30 # DB 기동 대기 시간 확보
           livenessProbe:
             httpGet:
               path: /api/health
               port: 8000
-            initialDelaySeconds: 15
+            initialDelaySeconds: 60
             periodSeconds: 20
           resources:
             requests:
